@@ -8,7 +8,7 @@ data "alicloud_express_connect_physical_connections" "example" {
 
 module "hz" {
   source = "../.."
- 
+
   vbr_config = [
     {
       vbr = {

@@ -4,7 +4,7 @@ locals {
 }
 
 /*
- * TR
+ * CEN
  */
 resource "alicloud_cen_instance" "this" {
   count = var.create_cen_instance ? 1 : 0
@@ -18,7 +18,8 @@ resource "alicloud_cen_instance" "this" {
 
 /*
  * TR
- */resource "alicloud_cen_transit_router" "this" {
+ */
+resource "alicloud_cen_transit_router" "this" {
   count = var.create_cen_transit_router ? 1 : 0
 
   cen_id                     = local.cen_instance_id
