@@ -14,6 +14,21 @@ variable "cen_transit_router_id" {
 }
 
 
+# ecr
+variable "enable_ecr" {
+  description = "Whether to enable ecr. Default to 'false'"
+  type        = bool
+  default     = false
+}
+
+variable "ecr_id" {
+  description = "The id of express connect router."
+  type        = string
+  default     = null
+}
+
+
+
 # vbr
 variable "vbr" {
   description = "The parameters of virtual border router. The attributes 'physical_connection_id', 'vlan_id', 'local_gateway_ip', 'peer_gateway_ip', 'peering_subnet_mask' are required."
@@ -74,6 +89,7 @@ variable "vbr_bgp_group" {
     bgp_group_name = optional(string, null)
     description    = optional(string, null)
     is_fake_asn    = optional(bool, false)
+    local_asn      = optional(number, null)
   })
   default = {
     peer_asn = null
