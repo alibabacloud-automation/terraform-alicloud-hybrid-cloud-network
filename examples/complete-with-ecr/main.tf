@@ -30,13 +30,7 @@ module "hz" {
         virtual_border_router_name = "vbr_1_name"
         description                = "vbr_1_description"
       },
-      tr_vbr_attachment = {
-        transit_router_attachment_name        = "vbr_1_tr_attachment_name"
-        transit_router_attachment_description = "vbr_1_tr_attachment_description"
-        auto_publish_route_enabled            = true
-        route_table_propagation_enabled       = true
-        route_table_association_enabled       = true
-      },
+
       vbr_health_check = {
         create_vbr_health_check = true
         health_check_interval   = 2
@@ -47,6 +41,7 @@ module "hz" {
         description    = "VPC-idc"
         peer_asn       = 45000
         is_fake_asn    = false
+        local_asn      = 65534
       },
       vbr_bgp_peer = {
         bfd_multi_hop   = "10"
@@ -65,10 +60,6 @@ module "hz" {
         virtual_border_router_name = "vbr_2_name"
         description                = "vbr_2_description"
       },
-      tr_vbr_attachment = {
-        transit_router_attachment_name        = "vbr_2_tr_attachment_name"
-        transit_router_attachment_description = "vbr_2_tr_attachment_description"
-      },
       vbr_health_check = {
         create_vbr_health_check = false
       },
@@ -76,6 +67,7 @@ module "hz" {
         bgp_group_name = "tf_bgp_2"
         description    = "VPC-idc"
         peer_asn       = 45000
+        local_asn      = 65534
       },
       vbr_bgp_peer = {
         bfd_multi_hop   = "10"
@@ -85,6 +77,13 @@ module "hz" {
       }
     }
   ]
+
+  enable_ecr = true
+  ecr_config = {
+    alibaba_side_asn                   = 65534
+    ecr_name                           = "ecr_name"
+    transit_router_ecr_attachment_name = "ecr_tr_attachment_name"
+  }
 
   create_vpc_resources = false
 }
