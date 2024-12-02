@@ -23,20 +23,14 @@ module "hz" {
     {
       vbr = {
         physical_connection_id     = data.alicloud_express_connect_physical_connections.example.connections[0].id
-        vlan_id                    = 202
+        vlan_id                    = 204
         local_gateway_ip           = "192.168.0.1"
         peer_gateway_ip            = "192.168.0.2"
         peering_subnet_mask        = "255.255.255.252"
         virtual_border_router_name = "vbr_1_name"
         description                = "vbr_1_description"
       },
-      tr_vbr_attachment = {
-        transit_router_attachment_name        = "vbr_1_tr_attachment_name"
-        transit_router_attachment_description = "vbr_1_tr_attachment_description"
-        auto_publish_route_enabled            = true
-        route_table_propagation_enabled       = true
-        route_table_association_enabled       = true
-      },
+
       vbr_health_check = {
         create_vbr_health_check = true
         health_check_interval   = 2
@@ -58,16 +52,12 @@ module "hz" {
     {
       vbr = {
         physical_connection_id     = data.alicloud_express_connect_physical_connections.example.connections[1].id
-        vlan_id                    = 203
+        vlan_id                    = 205
         local_gateway_ip           = "192.168.1.1"
         peer_gateway_ip            = "192.168.1.2"
         peering_subnet_mask        = "255.255.255.252"
         virtual_border_router_name = "vbr_2_name"
         description                = "vbr_2_description"
-      },
-      tr_vbr_attachment = {
-        transit_router_attachment_name        = "vbr_2_tr_attachment_name"
-        transit_router_attachment_description = "vbr_2_tr_attachment_description"
       },
       vbr_health_check = {
         create_vbr_health_check = false
@@ -85,6 +75,13 @@ module "hz" {
       }
     }
   ]
+
+  enable_ecr = true
+  ecr_config = {
+    alibaba_side_asn                   = 65214
+    ecr_name                           = "ecr_name"
+    transit_router_ecr_attachment_name = "ecr_tr_attachment_name"
+  }
 
   create_vpc_resources = false
 }
