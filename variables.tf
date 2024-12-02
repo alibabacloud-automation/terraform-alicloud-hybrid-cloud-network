@@ -49,6 +49,35 @@ variable "tr_config" {
   default = {}
 }
 
+variable "enable_ecr" {
+  description = "Whether to enable ECR between TR and VBRs. Default to 'false'."
+  type        = bool
+  default     = false
+}
+
+variable "exsiting_ecr_id" {
+  description = "Specify an existing ecr id. If not set, a new ecr will be created. If set, the attribute 'alibaba_side_asn' of ecr_config must be set, too."
+  type        = string
+  default     = null
+}
+
+variable "ecr_config" {
+  description = "The parameters of ecr."
+  type = object({
+    alibaba_side_asn                          = number
+    ecr_name                                  = optional(string, null)
+    description                               = optional(string, null)
+    transit_router_ecr_attachment_name        = optional(string, null)
+    transit_router_ecr_attachment_description = optional(string, null)
+    route_table_propagation_enabled           = optional(bool, true)
+    route_table_association_enabled           = optional(bool, true)
+  })
+  default = {
+    alibaba_side_asn = null
+  }
+
+}
+
 # VBR
 variable "create_vbr_resources" {
   description = "Whether to create vbr resources. Default to 'true'"

@@ -29,8 +29,8 @@ resource "alicloud_cen_transit_router_vpc_attachment" "this" {
       vswitch_id = zone_mappings.value.id
     }
   }
-  transit_router_attachment_name = var.tr_vpc_attachment.transit_router_attachment_name
-  auto_publish_route_enabled     = var.tr_vpc_attachment.auto_publish_route_enabled
+  transit_router_vpc_attachment_name = var.tr_vpc_attachment.transit_router_attachment_name
+  auto_publish_route_enabled         = var.tr_vpc_attachment.auto_publish_route_enabled
 }
 
 

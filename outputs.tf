@@ -25,6 +25,17 @@ output "cen_transit_router_support_multicast" {
   value       = alicloud_cen_transit_router.this[*].status
 }
 
+# ECR
+output "express_connect_router_id" {
+  description = "The id of Express Connect Router."
+  value       = one(alicloud_express_connect_router_express_connect_router.this[*].id)
+}
+
+output "tr_ecr_attachment_id" {
+  description = "The attachment id between TR and ECR."
+  value       = one(alicloud_cen_transit_router_ecr_attachment.this[*].id)
+}
+
 
 # VBR
 output "vbr_id" {
