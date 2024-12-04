@@ -12,7 +12,10 @@ resource "alicloud_express_connect_virtual_border_router" "this" {
   description                = var.vbr.description
 }
 
+# Attachment with TR
 resource "alicloud_cen_transit_router_vbr_attachment" "this" {
+  count = var.enable_ecr ? 0 : 1
+
   vbr_id                                = alicloud_express_connect_virtual_border_router.this.id
   cen_id                                = var.cen_instance_id
   transit_router_id                     = var.cen_transit_router_id
@@ -22,27 +25,26 @@ resource "alicloud_cen_transit_router_vbr_attachment" "this" {
   auto_publish_route_enabled            = var.tr_vbr_attachment.auto_publish_route_enabled
 }
 
-/*
- * TR Route Table
- */
 data "alicloud_cen_transit_router_route_tables" "this" {
+  count = var.enable_ecr ? 0 : 1
+
   transit_router_id               = var.cen_transit_router_id
   transit_router_route_table_type = "System"
 }
 
 resource "alicloud_cen_transit_router_route_table_propagation" "this" {
-  count = var.tr_vbr_attachment.route_table_propagation_enabled ? 1 : 0
+  count = var.enable_ecr ? 0 : var.tr_vbr_attachment.route_table_propagation_enabled ? 1 : 0
 
-  transit_router_route_table_id = data.alicloud_cen_transit_router_route_tables.this.tables[0].transit_router_route_table_id
-  transit_router_attachment_id  = alicloud_cen_transit_router_vbr_attachment.this.transit_router_attachment_id
+  transit_router_route_table_id = data.alicloud_cen_transit_router_route_tables.this[0].tables[0].transit_router_route_table_id
+  transit_router_attachment_id  = alicloud_cen_transit_router_vbr_attachment.this[0].transit_router_attachment_id
 }
 
 
 resource "alicloud_cen_transit_router_route_table_association" "this" {
-  count = var.tr_vbr_attachment.route_table_association_enabled ? 1 : 0
+  count = var.enable_ecr ? 0 : var.tr_vbr_attachment.route_table_association_enabled ? 1 : 0
 
-  transit_router_route_table_id = data.alicloud_cen_transit_router_route_tables.this.tables[0].transit_router_route_table_id
-  transit_router_attachment_id  = alicloud_cen_transit_router_vbr_attachment.this.transit_router_attachment_id
+  transit_router_route_table_id = data.alicloud_cen_transit_router_route_tables.this[0].tables[0].transit_router_route_table_id
+  transit_router_attachment_id  = alicloud_cen_transit_router_vbr_attachment.this[0].transit_router_attachment_id
 }
 
 /*
@@ -53,7 +55,7 @@ data "alicloud_regions" "this" {
 }
 
 resource "alicloud_cen_vbr_health_check" "this" {
-  count = var.create_vbr_health_check ? 1 : 0
+  count = var.enable_ecr ? 0 : var.create_vbr_health_check ? 1 : 0
 
   cen_id                 = var.cen_instance_id
   vbr_instance_id        = alicloud_express_connect_virtual_border_router.this.id
@@ -61,8 +63,18 @@ resource "alicloud_cen_vbr_health_check" "this" {
   vbr_instance_region_id = data.alicloud_regions.this.regions[0].id
   health_check_interval  = var.vbr_health_check.health_check_interval
   healthy_threshold      = var.vbr_health_check.healthy_threshold
+
 }
 
+# Attachment with ECR
+resource "alicloud_express_connect_router_vbr_child_instance" "this" {
+  count = var.enable_ecr ? 1 : 0
+
+  child_instance_id        = alicloud_express_connect_virtual_border_router.this.id
+  child_instance_region_id = data.alicloud_regions.this.regions[0].id
+  ecr_id                   = var.ecr_id
+  child_instance_type      = "VBR"
+}
 
 /*
  * bgp_group & bgp_peer
@@ -74,6 +86,8 @@ resource "alicloud_vpc_bgp_group" "this" {
   peer_asn       = var.vbr_bgp_group.peer_asn
   is_fake_asn    = var.vbr_bgp_group.is_fake_asn
   description    = var.vbr_bgp_group.description
+
+  depends_on = [alicloud_express_connect_router_vbr_child_instance.this]
 }
 
 resource "alicloud_vpc_bgp_peer" "this" {

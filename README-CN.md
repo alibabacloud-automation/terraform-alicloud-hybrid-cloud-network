@@ -5,13 +5,11 @@ terraform-alicloud-hybrid-cloud-network
 
 [English](https://github.com/alibabacloud-automation/terraform-alicloud-hybrid-cloud-network/blob/main/README.md) | 简体中文
 
-本 Module 用于在云上云下业务协同或者多云协同场景时，如何实现通过物理专线和阿里云云网络产品实现云上云下或多云间的业务协同，快速构建安全、稳定、弹性的混合云/多云协同网络，以满足客户的云化进程。
-
-操作流程简介如下：
-1. 通过物理专线实现IDC/三方云厂商与阿里云专线接入点的连接；
-2. 基于专线实例按需创建边界路由器VBR，不同的VBR间逻辑隔离；
-3. 高速通道VBR与云上VPC通过转发路由器TR实现互联互通，您可以将云上多地域的VPC与分布在多地的IDC或三方云资源实现安全、稳定的互联互通。
-4. 完成VPC、VSW、VBR、TR等实例的配置，完成网络打通。
+本模块重点介绍当存在云上云下业务协同或者多云协同场景，且业务为核心业务或对链路可靠性、性能有一定要求，可以考虑使用双专线冗余方案。整体方案如下：
+- 双物理专线&双接入点：申请2个接入点内的资源，建立2根物理专线连接，专线间可做负载均衡ECMP、可做主备，接入可靠性高、性能好。
+- 基于全动态路由和底层分布式设计的ECR网关：可提升路由配置管理效率、缩短专线到可用区AZ的时延和提升Region接入TR专线的总带宽能力。
+- TR实现ECR和VPC间的有效隔离和按需互通。
+- IDC/三方云和阿里云间采用BGP+BFD互联。
 
 架构图:
 
@@ -170,6 +168,14 @@ module "bj" {
 |------|------|
 | [alicloud_cen_instance.this](https://registry.terraform.io/providers/hashicorp/alicloud/latest/docs/resources/cen_instance) | resource |
 | [alicloud_cen_transit_router.this](https://registry.terraform.io/providers/hashicorp/alicloud/latest/docs/resources/cen_transit_router) | resource |
+| [alicloud_cen_transit_router_ecr_attachment.this](https://registry.terraform.io/providers/hashicorp/alicloud/latest/docs/resources/cen_transit_router_ecr_attachment) | resource |
+| [alicloud_cen_transit_router_route_table_association.this](https://registry.terraform.io/providers/hashicorp/alicloud/latest/docs/resources/cen_transit_router_route_table_association) | resource |
+| [alicloud_cen_transit_router_route_table_propagation.this](https://registry.terraform.io/providers/hashicorp/alicloud/latest/docs/resources/cen_transit_router_route_table_propagation) | resource |
+| [alicloud_express_connect_router_express_connect_router.this](https://registry.terraform.io/providers/hashicorp/alicloud/latest/docs/resources/express_connect_router_express_connect_router) | resource |
+| [alicloud_express_connect_router_tr_association.this](https://registry.terraform.io/providers/hashicorp/alicloud/latest/docs/resources/express_connect_router_tr_association) | resource |
+| [alicloud_account.current](https://registry.terraform.io/providers/hashicorp/alicloud/latest/docs/data-sources/account) | data source |
+| [alicloud_cen_transit_router_route_tables.this](https://registry.terraform.io/providers/hashicorp/alicloud/latest/docs/data-sources/cen_transit_router_route_tables) | data source |
+| [alicloud_regions.this](https://registry.terraform.io/providers/hashicorp/alicloud/latest/docs/data-sources/regions) | data source |
 
 ## Inputs
 
@@ -182,8 +188,11 @@ module "bj" {
 | <a name="input_create_cen_transit_router"></a> [create\_cen\_transit\_router](#input\_create\_cen\_transit\_router) | Whether to create transit router. If false, you can specify an existing transit router by setting 'cen\_transit\_router\_id'. Default to 'true' | `bool` | `true` | no |
 | <a name="input_create_vbr_resources"></a> [create\_vbr\_resources](#input\_create\_vbr\_resources) | Whether to create vbr resources. Default to 'true' | `bool` | `true` | no |
 | <a name="input_create_vpc_resources"></a> [create\_vpc\_resources](#input\_create\_vpc\_resources) | Whether to create vpc resources. Default to 'true' | `bool` | `true` | no |
+| <a name="input_ecr_config"></a> [ecr\_config](#input\_ecr\_config) | The parameters of ecr. | <pre>object({<br>    alibaba_side_asn                          = number<br>    ecr_name                                  = optional(string, null)<br>    description                               = optional(string, null)<br>    transit_router_ecr_attachment_name        = optional(string, null)<br>    transit_router_ecr_attachment_description = optional(string, null)<br>    route_table_propagation_enabled           = optional(bool, true)<br>    route_table_association_enabled           = optional(bool, true)<br>  })</pre> | <pre>{<br>  "alibaba_side_asn": null<br>}</pre> | no |
+| <a name="input_enable_ecr"></a> [enable\_ecr](#input\_enable\_ecr) | Whether to enable ECR between TR and VBRs. Default to 'false'. | `bool` | `false` | no |
+| <a name="input_exsiting_ecr_id"></a> [exsiting\_ecr\_id](#input\_exsiting\_ecr\_id) | Specify an existing ecr id. If not set, a new ecr will be created. If set, the attribute 'alibaba\_side\_asn' of ecr\_config must be set, too. | `string` | `null` | no |
 | <a name="input_tr_config"></a> [tr\_config](#input\_tr\_config) | The parameters of transit router. | <pre>object({<br>    transit_router_name        = optional(string, null)<br>    transit_router_description = optional(string, null)<br>    support_multicast          = optional(string, null)<br>    tags                       = optional(map(string), {})<br>  })</pre> | `{}` | no |
-| <a name="input_vbr_config"></a> [vbr\_config](#input\_vbr\_config) | The list parameters of vbr resources. The attributes 'vbr', 'vbr\_bgp\_group' are required. | <pre>list(object({<br>    vbr = object({<br>      physical_connection_id     = string<br>      vlan_id                    = number<br>      local_gateway_ip           = string<br>      peer_gateway_ip            = string<br>      peering_subnet_mask        = string<br>      virtual_border_router_name = optional(string, null)<br>      description                = optional(string, null)<br>    })<br>    tr_vbr_attachment = optional(object({<br>      transit_router_attachment_name        = optional(string, null)<br>      transit_router_attachment_description = optional(string, null)<br>      tags                                  = optional(map(string), {})<br>      auto_publish_route_enabled            = optional(bool, true)<br>      route_table_propagation_enabled       = optional(bool, true)<br>      route_table_association_enabled       = optional(bool, true)<br>    }), {})<br>    vbr_health_check = optional(object({<br>      create_vbr_health_check = optional(bool, true)<br>      health_check_interval   = optional(number, 2)<br>      healthy_threshold       = optional(number, 8)<br>    }), {})<br>    vbr_bgp_group = object({<br>      peer_asn       = string<br>      auth_key       = optional(string, null)<br>      bgp_group_name = optional(string, null)<br>      description    = optional(string, null)<br>      is_fake_asn    = optional(bool, false)<br>    })<br>    vbr_bgp_peer = optional(object({<br>      bfd_multi_hop   = optional(number, 255)<br>      enable_bfd      = optional(bool, "false")<br>      ip_version      = optional(string, "IPV4")<br>      peer_ip_address = optional(string, null)<br>    }), {})<br>  }))</pre> | <pre>[<br>  {<br>    "vbr": {<br>      "local_gateway_ip": null,<br>      "peer_gateway_ip": null,<br>      "peering_subnet_mask": null,<br>      "physical_connection_id": null,<br>      "vlan_id": null<br>    },<br>    "vbr_bgp_group": {<br>      "peer_asn": null<br>    }<br>  }<br>]</pre> | no |
+| <a name="input_vbr_config"></a> [vbr\_config](#input\_vbr\_config) | The list parameters of vbr resources. The attributes 'vbr', 'vbr\_bgp\_group' are required. | <pre>list(object({<br>    vbr = object({<br>      physical_connection_id     = string<br>      vlan_id                    = number<br>      local_gateway_ip           = string<br>      peer_gateway_ip            = string<br>      peering_subnet_mask        = string<br>      virtual_border_router_name = optional(string, null)<br>      description                = optional(string, null)<br>    })<br>    tr_vbr_attachment = optional(object({<br>      transit_router_attachment_name        = optional(string, null)<br>      transit_router_attachment_description = optional(string, null)<br>      tags                                  = optional(map(string), {})<br>      auto_publish_route_enabled            = optional(bool, true)<br>      route_table_propagation_enabled       = optional(bool, true)<br>      route_table_association_enabled       = optional(bool, true)<br>    }), {})<br>    vbr_health_check = optional(object({<br>      create_vbr_health_check = optional(bool, true)<br>      health_check_interval   = optional(number, 2)<br>      healthy_threshold       = optional(number, 8)<br>    }), {})<br>    vbr_bgp_group = object({<br>      peer_asn       = string<br>      auth_key       = optional(string, null)<br>      bgp_group_name = optional(string, null)<br>      description    = optional(string, null)<br>      is_fake_asn    = optional(bool, false)<br>      local_asn      = optional(number, null)<br>    })<br>    vbr_bgp_peer = optional(object({<br>      bfd_multi_hop   = optional(number, 255)<br>      enable_bfd      = optional(bool, "false")<br>      ip_version      = optional(string, "IPV4")<br>      peer_ip_address = optional(string, null)<br>    }), {})<br>  }))</pre> | <pre>[<br>  {<br>    "vbr": {<br>      "local_gateway_ip": null,<br>      "peer_gateway_ip": null,<br>      "peering_subnet_mask": null,<br>      "physical_connection_id": null,<br>      "vlan_id": null<br>    },<br>    "vbr_bgp_group": {<br>      "peer_asn": null<br>    }<br>  }<br>]</pre> | no |
 | <a name="input_vpc_config"></a> [vpc\_config](#input\_vpc\_config) | The parameters of vpc resources. The attributes 'vpc', 'vswitches' are required. | <pre>list(object({<br>    vpc = map(string)<br>    vswitches = list(object({<br>      zone_id      = string<br>      cidr_block   = string<br>      vswitch_name = optional(string, null)<br>    }))<br>    tr_vpc_attachment = optional(object({<br>      transit_router_attachment_name  = optional(string, null)<br>      auto_publish_route_enabled      = optional(bool, true)<br>      route_table_propagation_enabled = optional(bool, true)<br>      route_table_association_enabled = optional(bool, true)<br>    }), {})<br>  }))</pre> | `[]` | no |
 
 ## Outputs
@@ -200,7 +209,9 @@ module "bj" {
 | <a name="output_cen_transit_router_id"></a> [cen\_transit\_router\_id](#output\_cen\_transit\_router\_id) | The id of CEN transit router. |
 | <a name="output_cen_transit_router_support_multicast"></a> [cen\_transit\_router\_support\_multicast](#output\_cen\_transit\_router\_support\_multicast) | The status of CEN transit router. |
 | <a name="output_cen_transit_router_type"></a> [cen\_transit\_router\_type](#output\_cen\_transit\_router\_type) | The type of CEN transit router. |
+| <a name="output_express_connect_router_id"></a> [express\_connect\_router\_id](#output\_express\_connect\_router\_id) | The id of Express Connect Router. |
 | <a name="output_health_check_id"></a> [health\_check\_id](#output\_health\_check\_id) | The id of health check. |
+| <a name="output_tr_ecr_attachment_id"></a> [tr\_ecr\_attachment\_id](#output\_tr\_ecr\_attachment\_id) | The attachment id between TR and ECR. |
 | <a name="output_tr_vbr_attachment_id"></a> [tr\_vbr\_attachment\_id](#output\_tr\_vbr\_attachment\_id) | The id of attachment bewteen TR and VBR. |
 | <a name="output_tr_vbr_attachment_status"></a> [tr\_vbr\_attachment\_status](#output\_tr\_vbr\_attachment\_status) | The status of attachment bewteen TR and VBR. |
 | <a name="output_tr_vbr_route_table_association_id"></a> [tr\_vbr\_route\_table\_association\_id](#output\_tr\_vbr\_route\_table\_association\_id) | The id of route table association bewteen TR and VBR. |

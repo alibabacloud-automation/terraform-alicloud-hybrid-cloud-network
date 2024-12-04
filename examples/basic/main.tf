@@ -13,7 +13,7 @@ module "hz" {
     {
       vbr = {
         physical_connection_id = data.alicloud_express_connect_physical_connections.example.connections[0].id
-        vlan_id                = 104
+        vlan_id                = 201
         local_gateway_ip       = "192.168.0.1"
         peer_gateway_ip        = "192.168.0.2"
         peering_subnet_mask    = "255.255.255.252"
