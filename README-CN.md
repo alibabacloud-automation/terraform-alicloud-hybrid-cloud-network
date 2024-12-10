@@ -5,17 +5,168 @@ terraform-alicloud-hybrid-cloud-network
 
 [English](https://github.com/alibabacloud-automation/terraform-alicloud-hybrid-cloud-network/blob/main/README.md) | 简体中文
 
-本模块重点介绍当存在云上云下业务协同或者多云协同场景，且业务为核心业务或对链路可靠性、性能有一定要求，可以考虑使用双专线冗余方案。整体方案如下：
-- 双物理专线&双接入点：申请2个接入点内的资源，建立2根物理专线连接，专线间可做负载均衡ECMP、可做主备，接入可靠性高、性能好。
-- 基于全动态路由和底层分布式设计的ECR网关：可提升路由配置管理效率、缩短专线到可用区AZ的时延和提升Region接入TR专线的总带宽能力。
-- TR实现ECR和VPC间的有效隔离和按需互通。
-- IDC/三方云和阿里云间采用BGP+BFD互联。
+本卓越架构设计重点介绍当存在云上云下业务协同或者多云协同场景时，如何实现通过物理专线和阿里云云网络产品实现云上云下或多云间的业务协同，快速构建安全、稳定、弹性的混合云/多云协同网络，以满足客户的云化进程。操作流程简介如下：
+1. 通过物理专线实现IDC/三方云厂商与阿里云专线接入点的连接；
+2. 基于专线实例按需创建边界路由器VBR，不同的VBR间逻辑隔离；
+3. 高速通道VBR与云上VPC通过转发路由器TR实现互联互通，您可以将云上多地域的VPC与分布在多地的IDC或三方云资源实现安全、稳定的互联互通。
+4. 完成VPC、VSW、VBR、TR等实例的配置，完成网络打通。
 
 架构图:
+
+
+V2.0:
+
+![image](https://raw.githubusercontent.com/alibabacloud-automation/terraform-alicloud-hybrid-cloud-network/main/scripts/diagramv2.png)
+
+V1.0：
 
 ![image](https://raw.githubusercontent.com/alibabacloud-automation/terraform-alicloud-hybrid-cloud-network/main/scripts/diagram.png)
 
 ## 用法
+
+在杭州区域创建VBR、ECR资源
+
+```hcl
+# cn-hangzhou
+provider "alicloud" {
+  region = "cn-hangzhou"
+  alias  = "hz"
+}
+data "alicloud_express_connect_physical_connections" "example" {
+  provider   = alicloud.hz
+  name_regex = "^preserved-NODELETING"
+}
+module "hz" {
+  source  = "alibabacloud-automation/hybrid-cloud-network/alicloud"
+  version = "~> 2.0"
+
+  providers = {
+    alicloud = alicloud.hz
+  }
+
+  create_cen_instance       = true
+  cen_instance_config       = var.cen_instance_config
+  create_cen_transit_router = true
+  tr_config                 = var.tr_config
+
+  create_vbr_resources = true
+  vbr_config = [
+    {
+      vbr = {
+        physical_connection_id     = data.alicloud_express_connect_physical_connections.example.connections[0].id
+        vlan_id                    = 204
+        local_gateway_ip           = "192.168.0.1"
+        peer_gateway_ip            = "192.168.0.2"
+        peering_subnet_mask        = "255.255.255.252"
+        virtual_border_router_name = "vbr_1_name"
+        description                = "vbr_1_description"
+      },
+
+      vbr_health_check = {
+        create_vbr_health_check = true
+        health_check_interval   = 2
+        healthy_threshold       = 8
+      },
+      vbr_bgp_group = {
+        bgp_group_name = "bgp_1"
+        description    = "VPC-idc"
+        peer_asn       = 45000
+        is_fake_asn    = false
+      },
+      vbr_bgp_peer = {
+        bfd_multi_hop   = "10"
+        enable_bfd      = true
+        ip_version      = "IPV4"
+        peer_ip_address = "1.1.1.1"
+      }
+    },
+    {
+      vbr = {
+        physical_connection_id     = data.alicloud_express_connect_physical_connections.example.connections[1].id
+        vlan_id                    = 205
+        local_gateway_ip           = "192.168.1.1"
+        peer_gateway_ip            = "192.168.1.2"
+        peering_subnet_mask        = "255.255.255.252"
+        virtual_border_router_name = "vbr_2_name"
+        description                = "vbr_2_description"
+      },
+      vbr_health_check = {
+        create_vbr_health_check = false
+      },
+      vbr_bgp_group = {
+        bgp_group_name = "tf_bgp_2"
+        description    = "VPC-idc"
+        peer_asn       = 45000
+      },
+      vbr_bgp_peer = {
+        bfd_multi_hop   = "10"
+        enable_bfd      = true
+        ip_version      = "IPV4"
+        peer_ip_address = "1.1.1.1"
+      }
+    }
+  ]
+
+  enable_ecr = true
+  ecr_config = {
+    alibaba_side_asn                   = 65214
+    ecr_name                           = "ecr_name"
+    transit_router_ecr_attachment_name = "ecr_tr_attachment_name"
+  }
+
+  create_vpc_resources = false
+}
+
+# cn-beijing
+provider "alicloud" {
+  region = "cn-beijing"
+  alias  = "bj"
+}
+
+module "bj" {
+  source  = "alibabacloud-automation/hybrid-cloud-network/alicloud"
+  version = "~> 2.0"
+
+  providers = {
+    alicloud = alicloud.bj
+  }
+
+  create_cen_instance       = false
+  cen_instance_id           = module.hz.cen_instance_id
+  create_cen_transit_router = true
+
+  create_vbr_resources = false
+
+  create_vpc_resources = true
+  vpc_config           = var.bj_vpc_config
+
+}
+
+# cn-shanghai
+provider "alicloud" {
+  region = "cn-shanghai"
+  alias  = "sh"
+}
+
+module "sh" {
+  source  = "alibabacloud-automation/hybrid-cloud-network/alicloud"
+  version = "~> 2.0"
+
+  providers = {
+    alicloud = alicloud.sh
+  }
+
+  create_cen_instance       = false
+  cen_instance_id           = module.hz.cen_instance_id
+  create_cen_transit_router = true
+
+  create_vbr_resources = false
+
+  create_vpc_resources = true
+  vpc_config           = var.sh_vpc_config
+}
+```
+
 
 在同一个地域创建 VPC、VBR 资源
 
@@ -139,6 +290,7 @@ module "bj" {
 
 * [基础用法](https://github.com/alibabacloud-automation/terraform-alicloud-hybrid-cloud-network/tree/main/examples/basic)
 * [完整示例](https://github.com/alibabacloud-automation/terraform-alicloud-hybrid-cloud-network/tree/main/examples/complete)
+* [创建ECR完整示例](https://github.com/alibabacloud-automation/terraform-alicloud-hybrid-cloud-network/tree/main/examples/complete-with-ecr)
 
 
 <!-- BEGIN_TF_DOCS -->
